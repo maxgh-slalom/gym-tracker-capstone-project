@@ -1,0 +1,60 @@
+# --- Dependencies -----------------------------------------------------------
+node_modules/
+.npm/
+.pnpm-store/
+
+# --- Application data -------------------------------------------------------
+# SQLite is the single source of truth, but the database file is local state:
+# it is created by migrations on startup and populated via the demo reset.
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# --- Environment & secrets --------------------------------------------------
+# Principle V: secrets live in the server environment, never in the repository.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Logs & diagnostics -----------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.node-repl-history
+*.heapsnapshot
+report.*.json
+
+# --- Test & coverage output -------------------------------------------------
+coverage/
+.nyc_output/
+*.lcov
+tmp/
+.tmp/
+
+# --- Editors ----------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS ---------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
