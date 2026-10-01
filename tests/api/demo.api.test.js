@@ -100,4 +100,26 @@ describe('API conventions', () => {
     assert.equal(res.status, 201);
     assert.equal(res.body.bogusField, undefined);
   });
+
+  it('rejects a non-JSON request body (FR-036e)', async () => {
+    const res = await fetch(`${server.baseUrl}/api/exercises`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: 'name=Sneaky',
+    });
+    const payload = await res.json();
+    assert.equal(res.status, 400);
+    assert.equal(payload.error.field, 'content-type');
+  });
+
+  it('still accepts a bodyless POST such as archive', async () => {
+    const created = await api('POST', '/api/exercises', {
+      name: 'Bodyless Post Lift',
+      muscleGroup: 'other',
+    });
+    const res = await fetch(`${server.baseUrl}/api/exercises/${created.body.id}/archive`, {
+      method: 'POST',
+    });
+    assert.equal(res.status, 200);
+  });
 });

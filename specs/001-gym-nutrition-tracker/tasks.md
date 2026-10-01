@@ -329,3 +329,26 @@ Each increment leaves the app shippable. Stopping after increment 3 yields a com
 - Every test file provisions its own temp database; `data/gymtracker.db` is never touched by tests
 - Commit after each task; each is independently reviewable
 - Run `npm test` before every commit — the suite is fast enough to be a per-commit gate
+
+---
+
+## Phase 9: Convergence
+
+**Purpose**: Close gaps found by assessing the built code against spec.md, plan.md, and tasks.md.
+
+The API layer satisfies the specification; the gaps are concentrated in the frontend, where
+several implemented endpoints have no way to be invoked by a user. The existing test suite did
+not catch this because it exercises the API directly rather than asserting reachability.
+
+- [X] T097 Add session editing to `public/js/views/workouts.view.js`: load an existing session into the builder, allow changing its date, note, sets, reps, and weights, and save via `PUT /api/workouts/:id` per FR-010 and US1/AC3 (missing)
+- [X] T098 Gate meal-entry removal in `public/js/views/nutrition.view.js` behind `confirmDialog` from `public/js/dialog.js`, matching every other destructive action, per FR-038a (contradicts)
+- [X] T099 Add a custom-food form to `public/js/views/nutrition.view.js` posting name, portion name, portion grams, and the four nutrition values to `POST /api/foods` per FR-024 (missing)
+- [X] T100 Add food archive, restore, and an archived-foods listing to `public/js/views/nutrition.view.js` using the existing `/api/foods/:id/archive`, `/restore`, and `includeArchived` query per FR-024b (missing)
+- [X] T101 Add editing of a logged meal entry's quantity and meal slot in `public/js/views/nutrition.view.js` via `PATCH /api/meal-entries/:id` per FR-023 (partial)
+- [X] T102 Add food renaming in `public/js/views/nutrition.view.js` via `PATCH /api/foods/:id`, leaving locked nutrition fields disabled and explaining why using `entryCount`, per FR-024c and FR-024d (missing)
+- [X] T103 Create `tests/integration/performance.test.js` seeding 500 sessions, 5,000 sets, 500 body weight entries, and 2,000 meal entries, then asserting every list, day-view, and progress query returns within 200 ms, per SC-007 and SC-007a (partial)
+- [X] T104 Time the three journeys in SC-001, SC-002, and SC-003 against the reference dataset and record the measured figures in `specs/001-gym-nutrition-tracker/quickstart.md`, per SC-001 through SC-003 (partial)
+- [X] T105 Reject request bodies whose content type is not `application/json` with an explicit error in `src/app.js` or `src/middleware/`, rather than letting them fall through to a field validation error, per FR-036e (partial)
+- [X] T106 Offer the demo-data action from each screen's empty state in `public/js/views/`, so a first-run user has the documented route to populate the app, per FR-043a (partial)
+- [X] T107 Expose the 100-result maximum for food search in `public/js/views/nutrition.view.js`, per FR-017a (partial)
+- [X] T108 Reconcile `public/js/banner.js` and `public/js/dialog.js` with the Source Code tree in `specs/001-gym-nutrition-tracker/plan.md`, recording why each exists (breaking the main.js import cycle; replacing unsupported and inaccessible native dialogs) per plan: structure decision (unrequested)

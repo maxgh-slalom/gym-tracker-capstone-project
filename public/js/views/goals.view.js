@@ -3,6 +3,7 @@
 import { api } from '../api.js';
 import { clear, el, emptyState, field, loading, table } from '../dom.js';
 import { confirmDialog } from '../dialog.js';
+import { runDemoReset } from '../demo.js';
 import { kcal, mass, todayIso } from '../format.js';
 import { showError, showSuccess } from '../banner.js';
 
@@ -67,7 +68,11 @@ function history(goalSets, reload) {
   if (!goalSets.length) {
     return el('div', { class: 'panel' }, [
       el('h3', { text: 'Goal history' }),
-      emptyState('No goals set yet. Add a goal set above to start comparing your intake.'),
+      emptyState(
+        'No goals set yet. Add a goal set above, or load the demo data to explore the app.',
+        'Load demo data',
+        () => runDemoReset({ isEmpty: true }),
+      ),
     ]);
   }
 

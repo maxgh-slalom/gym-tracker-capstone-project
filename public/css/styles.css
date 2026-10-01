@@ -319,3 +319,14 @@ svg text {
   gap: 8px;
   margin-top: 16px;
 }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.form-grid input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

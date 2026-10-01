@@ -6,13 +6,15 @@ import { fileURLToPath } from 'node:url';
 import { apiRouter } from './routes/index.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFound } from './middleware/not-found.js';
+import { requireJson } from './middleware/require-json.js';
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
 export function createApp() {
   const app = express();
 
-  app.use(express.json({ limit: '1mb' })); // FR-036e
+  app.use('/api', requireJson); // FR-036e
+  app.use(express.json({ limit: '1mb' }));
   app.use(express.static(PUBLIC_DIR));
   app.use('/api', apiRouter);
   app.use('/api', notFound);

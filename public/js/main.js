@@ -2,7 +2,7 @@
 
 import { api } from './api.js';
 import { hideBanner, showError, showSuccess } from './banner.js';
-import { typedConfirmDialog } from './dialog.js';
+import { runDemoReset } from './demo.js';
 
 const view = document.getElementById('view');
 const demoButton = document.getElementById('demo-button');
@@ -27,28 +27,18 @@ async function refreshDemoButton() {
 }
 
 // FR-041d: the typed, case-sensitive token is the guard on an irreversible action.
-demoButton.addEventListener('click', async () => {
-  const isEmpty = demoButton.dataset.empty === 'true';
-  const confirmed = await typedConfirmDialog({
-    title: isEmpty ? 'Load demo data' : 'Reset demo data',
-    message: isEmpty
-      ? 'This loads a demo data set covering eight weeks of workouts, body weight, meals, and goals.'
-      : 'This permanently erases ALL data — both your own records and any previously loaded demo data — and reloads the demo set. It cannot be undone.',
-    token: 'RESET',
-  });
-  if (!confirmed) return;
+demoButton.addEventListener('click', () => {
+  runDemoReset({ isEmpty: demoButton.dataset.empty === 'true' });
+});
 
-  try {
-    const result = await api.post('/api/demo/reset', { confirm: 'RESET' });
-    const { exercises, sessions, mealEntries } = result.counts;
-    await refreshDemoButton();
-    await route({ keepBanner: true });
-    showSuccess(
-      `Demo data loaded: ${exercises} exercises, ${sessions} sessions, ${mealEntries} meal entries.`,
-    );
-  } catch (err) {
-    showError(err);
-  }
+// Fired by demo.js wherever the reset was triggered from, including empty states.
+window.addEventListener('gymtracker:data-reset', async (event) => {
+  const { exercises, sessions, mealEntries } = event.detail;
+  await refreshDemoButton();
+  await route({ keepBanner: true });
+  showSuccess(
+    `Demo data loaded: ${exercises} exercises, ${sessions} sessions, ${mealEntries} meal entries.`,
+  );
 });
 
 function markActiveNav(hash) {

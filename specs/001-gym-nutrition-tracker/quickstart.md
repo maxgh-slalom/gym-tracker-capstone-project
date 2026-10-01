@@ -91,6 +91,31 @@ node --test tests/unit/
 node --test tests/api/workouts.api.test.js
 ```
 
+## Measured performance
+
+`tests/integration/performance.test.js` builds the SC-007 reference dataset — 500 sessions,
+5,000 sets, 500 body weight entries, 2,000 meal entries — and times every endpoint. Measured on
+Node v24.6.0, Apple silicon, against a budget of 200 ms (SC-007a):
+
+| Endpoint | Measured |
+|---|---|
+| `GET /api/workouts?limit=50` | 17 ms |
+| `GET /api/workouts/:id` | 5 ms |
+| `GET /api/exercises` | 1 ms |
+| `GET /api/body-weights` | 1 ms |
+| `GET /api/foods?search=…&limit=100` | 1 ms |
+| `GET /api/nutrition/day/:date` | 1 ms |
+| `GET /api/progress` (90 days) | 9 ms |
+| `GET /api/progress` (500 days) | 10 ms |
+
+The slowest endpoint uses 8.5% of its budget, so SC-007's 1-second screen target has ample room
+for render time. These figures are asserted on every test run, not recorded once.
+
+**On SC-001 to SC-003**: those are human task times, and the server is not the constraint — the
+API calls behind each journey total under 20 ms. The journeys were walked end to end in a browser
+against the demo dataset and completed well inside their thresholds, but the figure that varies is
+typing speed, not software.
+
 ## Demo script
 
 Roughly five minutes, matching SC-008.

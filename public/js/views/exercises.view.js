@@ -3,6 +3,7 @@
 import { api } from '../api.js';
 import { clear, el, emptyState, field, loading, select, table } from '../dom.js';
 import { confirmDialog, promptDialog } from '../dialog.js';
+import { runDemoReset } from '../demo.js';
 import { MUSCLE_GROUPS, titleCase } from '../format.js';
 import { showError, showSuccess } from '../banner.js';
 
@@ -39,11 +40,15 @@ async function render(container) {
     if (!exercises.length) {
       return el('div', { class: 'panel' }, [
         toggle,
-        emptyState(
-          includeArchived
-            ? 'No exercises yet. Create one above to start logging workouts.'
-            : 'No active exercises. Create one above, or show archived exercises to restore one.',
-        ),
+        includeArchived
+          ? emptyState(
+              'No exercises yet. Create one above, or load the demo data to explore the app.',
+              'Load demo data',
+              () => runDemoReset({ isEmpty: true }),
+            )
+          : emptyState(
+              'No active exercises. Create one above, or show archived exercises to restore one.',
+            ),
       ]);
     }
 

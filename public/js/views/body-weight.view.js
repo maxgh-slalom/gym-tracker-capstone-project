@@ -3,6 +3,7 @@
 import { api } from '../api.js';
 import { clear, el, emptyState, field, loading, table } from '../dom.js';
 import { confirmDialog } from '../dialog.js';
+import { runDemoReset } from '../demo.js';
 import { kg, todayIso } from '../format.js';
 import { showError, showSuccess } from '../banner.js';
 
@@ -55,7 +56,11 @@ function history(entries, reload) {
   if (!entries.length) {
     return el('div', { class: 'panel' }, [
       el('h3', { text: 'History' }),
-      emptyState('No weigh-ins recorded yet. Add one above to start tracking.'),
+      emptyState(
+        'No weigh-ins recorded yet. Add one above, or load the demo data to explore the app.',
+        'Load demo data',
+        () => runDemoReset({ isEmpty: true }),
+      ),
     ]);
   }
 

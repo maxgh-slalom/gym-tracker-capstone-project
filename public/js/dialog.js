@@ -7,7 +7,7 @@
 
 import { el } from './dom.js';
 
-function open(buildBody, { title, confirmLabel, danger, onConfirm }) {
+function open(buildBody, { title, confirmLabel, danger, onConfirm, showCancel = true }) {
   return new Promise((resolve) => {
     const dialog = el('dialog', { class: 'modal', 'aria-label': title });
     const body = buildBody();
@@ -41,7 +41,7 @@ function open(buildBody, { title, confirmLabel, danger, onConfirm }) {
     form.append(
       el('h3', { text: title }),
       body.node,
-      el('div', { class: 'modal-actions' }, [cancel, confirm]),
+      el('div', { class: 'modal-actions' }, showCancel ? [cancel, confirm] : [confirm]),
     );
 
     dialog.append(form);
@@ -77,6 +77,57 @@ export function promptDialog({ title, label, value = '', confirmLabel = 'Save' }
       confirmLabel,
       danger: false,
       onConfirm: (body) => body.input.value.trim() || undefined,
+    },
+  );
+}
+
+/**
+ * Multi-field form dialog. `fields` entries may set `disabled` with a `note`,
+ * which is how locked food nutrition values are surfaced (FR-024c).
+ */
+export function formDialog({ title, fields, confirmLabel = 'Save', note = null }) {
+  return open(
+    () => {
+      const inputs = new Map();
+      const rows = fields.map((f, i) => {
+        const id = `modal-field-${i}`;
+        const input = el('input', {
+          id,
+          type: f.type ?? 'text',
+          value: f.value ?? '',
+          step: f.step,
+          min: f.min,
+          disabled: f.disabled,
+        });
+        inputs.set(f.name, input);
+        return el('div', { class: 'field' }, [
+          el('label', { for: id, text: f.label }),
+          input,
+          f.note ? el('span', { class: 'muted', text: f.note }) : null,
+        ]);
+      });
+
+      return {
+        node: el('div', {}, [
+          note ? el('p', { class: 'muted', text: note }) : null,
+          el('div', { class: 'form-grid' }, rows),
+        ]),
+        inputs,
+        focus: () => inputs.values().next().value?.focus(),
+      };
+    },
+    {
+      title,
+      confirmLabel,
+      danger: false,
+      onConfirm: (body) => {
+        const result = {};
+        for (const [name, input] of body.inputs) {
+          if (input.disabled) continue;
+          result[name] = input.value;
+        }
+        return result;
+      },
     },
   );
 }
@@ -117,6 +168,7 @@ export function typedConfirmDialog({ title, message, token }) {
   ).then((result) => result === true);
 }
 
+/** Read-only; Close is the only action, so no Cancel is offered. */
 export function infoDialog({ title, lines }) {
   return open(
     () => ({
@@ -126,6 +178,6 @@ export function infoDialog({ title, lines }) {
         lines.map((line) => el('p', { text: line })),
       ),
     }),
-    { title, confirmLabel: 'Close', danger: false, onConfirm: () => true },
+    { title, confirmLabel: 'Close', danger: false, onConfirm: () => true, showCancel: false },
   );
 }

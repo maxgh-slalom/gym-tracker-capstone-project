@@ -184,6 +184,11 @@ public/                               # served statically; no build step
 └── js/
     ├── main.js                    # bootstrap + hash router
     ├── api.js                     # fetch wrapper; surfaces API errors, never swallows them
+    ├── banner.js                  # the one error/success surface; separate from main.js so
+    │                              #   views can import it without a cycle back to the router
+    ├── dialog.js                  # labelled <dialog> modals; native prompt/confirm are
+    │                              #   unsupported in embedded browsers and cannot meet FR-050/052
+    ├── demo.js                    # the demo reset flow, shared by the header and empty states
     ├── dom.js                     # element helpers that only ever set textContent
     ├── format.js                  # date and number display formatting
     ├── chart.js                   # hand-rolled inline SVG line and bar rendering

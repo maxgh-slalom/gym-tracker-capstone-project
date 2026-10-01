@@ -33,8 +33,9 @@ export function update(id, patch) {
   if (food.entryCount > 0) {
     for (const field of LOCKED_FIELDS) {
       if (patch[field] !== undefined && patch[field] !== food[field]) {
+        const plural = food.entryCount === 1 ? 'entry' : 'entries';
         throw new ConflictError(
-          `Nutrition values are locked: ${food.entryCount} meal entries already reference this food. Create a new food instead.`,
+          `Nutrition values are locked: ${food.entryCount} meal ${plural} already reference this food. Create a new food instead.`,
           field,
         );
       }
