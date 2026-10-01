@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GymTracker</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1 class="app-title">GymTracker</h1>
+      <nav class="app-nav" aria-label="Main">
+        <a href="#/workouts">Workouts</a>
+        <a href="#/exercises">Exercises</a>
+        <a href="#/body-weight">Body Weight</a>
+        <a href="#/nutrition">Nutrition</a>
+        <a href="#/goals">Goals</a>
+        <a href="#/progress">Progress</a>
+      </nav>
+      <button id="demo-button" class="demo-button" type="button">Load demo data</button>
+    </header>
+
+    <div id="banner" class="banner" role="alert" hidden></div>
+
+    <main id="view" class="view" tabindex="-1"></main>
+
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>

@@ -10,16 +10,46 @@ from `/`, from the same origin, so no CORS headers are configured. The server bi
 
 - Request and response bodies use **camelCase**; the repository layer maps to and from snake_case
   columns so SQL naming never reaches the API.
-- Dates are `YYYY-MM-DD` strings. Dates later than today are rejected (research R10); goal
-  `effectiveDate` is the sole exception and may be in the future.
+- Dates are `YYYY-MM-DD` strings interpreted in the server's local timezone (FR-048). Dates later
+  than the server's current local date are rejected (FR-049); goal `effectiveDate` is the sole
+  exception and may be in the future.
+- **400 versus 404**: a resource addressed in the **path** that does not exist is a `404`. An
+  identifier supplied in a **request body** that does not resolve is a `400` naming that field,
+  because from the API's perspective it is an invalid field value like any other. This rule is
+  applied without exception.
 - `POST` returns `201` with the created resource. `PATCH`/`PUT` return `200` with the updated
   resource. `DELETE` returns `204` with no body.
 - Unknown fields in a request body are ignored, not rejected. Missing required fields are a `400`.
+- Numbers are returned already rounded under FR-044 — energy to whole kcal, masses to one decimal
+  place. **Every aggregate is computed server-side** from unrounded values and rounded once
+  (FR-045). Clients MUST NOT sum values taken from a response to produce a total; where a total is
+  needed, an endpoint returns it.
+- **List limits** differ by resource on purpose: history endpoints default to 50 (max 200) because
+  a user scrolls a long history, while search endpoints default to 25 (max 100) because results
+  are scanned and then narrowed by a better query.
+- **Date-range parameters**: `from` and `to` are optional on history endpoints, where omitting
+  them means "all time". They are required on `/api/progress`, because a trend without a range has
+  no meaningful default extent.
+- **Unknown query parameters** are ignored, exactly as unknown body fields are.
+- **`PUT` versus `PATCH`**: `PUT` replaces a resource in full, used where a partial update would
+  be ambiguous (a workout's entries; a single-valued body weight or goal row). `PATCH` applies a
+  partial update to independent fields.
+- **Identifier kinds**: resources the user creates repeatedly carry numeric ids. Resources that
+  are unique per date by definition — body weight entries and goal sets — are addressed by their
+  date, because that *is* their identity.
+- **Idempotency**: `archive`, `restore`, and `PUT` are idempotent and return `200` when repeated.
+  `DELETE` is deliberately not: deleting an absent resource returns `404`, so a mistaken path is
+  reported rather than silently accepted.
+- **Empty children**: a resource that exists but has no child records returns an empty array —
+  never `null`, never `404`.
+- **Request bodies** must be `application/json` and at most 1 MB (FR-036e).
+- **Out of scope**: no API versioning scheme and no rate limiting; neither is justified for a
+  loopback-bound single-user application.
 
 ## Error shape
 
-Every non-2xx response has exactly this body. Stack traces and internal detail are logged
-server-side only (Principle V).
+Every non-2xx response has exactly this body (FR-036c). Stack traces and internal detail are
+logged server-side only (FR-038f).
 
 ```json
 {
@@ -31,12 +61,16 @@ server-side only (Principle V).
 }
 ```
 
+`field` uses dotted path notation from the root of the request body, with zero-based `[i]`
+indices for array members — `entries[0].sets[2].reps`, not a prose description. When several
+fields are invalid, only the **first** failing field is reported (FR-036d).
+
 | Code | Status | Meaning |
 |---|---|---|
 | `VALIDATION_ERROR` | 400 | A field failed a boundary rule. `field` is always present. |
 | `NOT_FOUND` | 404 | The addressed resource does not exist. |
-| `CONFLICT` | 409 | Duplicate name, or deletion of a referenced item. |
-| `INTERNAL_ERROR` | 500 | Unexpected failure. `message` is generic; full context is in the server log. |
+| `CONFLICT` | 409 | Exactly three cases: duplicate case-insensitive name (FR-002), deleting a referenced catalog item (FR-004b, FR-004c), editing a locked food nutrition field (FR-024c). |
+| `INTERNAL_ERROR` | 500 | Unexpected failure, including the database becoming unavailable mid-request (FR-038g). `message` is generic; full context is in the server log. |
 
 ---
 
@@ -103,8 +137,8 @@ idempotent and returns `200`.
 
 `200` → `{ "sessions": [ { "id", "date", "note", "setCount", "totalVolume", "exercises": ["Squat", "Bench Press"] } ] }`
 
-A summary shape for the history list, newest first (FR-009). Volume uses the single definition in
-the data model.
+A summary shape for the history list, newest first (FR-009, FR-009a). `totalVolume` comes from the
+single volume implementation required by FR-031a — it is never recomputed here.
 
 ### `GET /api/workouts/:id`
 
@@ -149,11 +183,12 @@ the data model.
 | `entries` missing or empty | 400 | `entries` |
 | an entry has no sets | 400 | `entries[i].sets` |
 | `reps` not a positive integer | 400 | `entries[i].sets[j].reps` |
-| `weightKg` negative or non-numeric | 400 | `entries[i].sets[j].weightKg` |
-| `exerciseId` unknown | 404 | — |
+| `weightKg` negative, non-numeric, or beyond one decimal place | 400 | `entries[i].sets[j].weightKg` |
+| `exerciseId` unknown or archived | 400 | `entries[i].exerciseId` |
 
-Logging against an **archived** exercise is rejected with `400` / `field: entries[i].exerciseId`,
-since archived items must not appear in new entries.
+An unknown `exerciseId` is a `400` rather than a `404` because it arrives in the body, per the
+convention above. Archived exercises are rejected the same way, since archived items must not
+appear in new entries.
 
 ### `PUT /api/workouts/:id`
 
@@ -163,7 +198,7 @@ user to delete it instead (research R10).
 
 ### `DELETE /api/workouts/:id`
 
-`204`. Sets are removed by `ON DELETE CASCADE`.
+`204`. Sets are removed by `ON DELETE CASCADE` (FR-010a).
 
 ---
 
@@ -237,9 +272,22 @@ Body: `name`, `portionName`, `portionGrams`, `calories`, `proteinG`, `carbsG`, `
 Same semantics as the exercise equivalents. `DELETE` returns `409` when any meal entry references
 the food.
 
-Editing a food's nutrition values changes how **all** of its past entries are reported, because
-entries store only a quantity. The `PATCH` response includes `affectedEntryCount` so the UI can
-warn before saving.
+`PATCH` accepts `name` and `portionName` at any time. Once `entryCount > 0`, the fields that
+change recorded values — `portionGrams`, `calories`, `proteinG`, `carbsG`, `fatG` — are immutable
+(FR-024c). Attempting to change one returns:
+
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Nutrition values are locked: 17 meal entries already reference this food. Create a new food instead.",
+    "field": "calories"
+  }
+}
+```
+
+The `GET /api/foods` response already carries `entryCount`, so the UI can disable those inputs
+before the user types rather than rejecting the edit afterwards.
 
 ---
 
@@ -277,8 +325,7 @@ Exactly one of `servings` or `grams` must be supplied (research R6).
 | `servings` or `grams` ≤ 0 or non-numeric | 400 | `servings` / `grams` |
 | `mealSlot` not a known slot | 400 | `mealSlot` |
 | `date` malformed or in the future | 400 | `date` |
-| `foodId` unknown | 404 | — |
-| food is archived | 400 | `foodId` |
+| `foodId` unknown or archived | 400 | `foodId` |
 
 ### `PATCH /api/meal-entries/:id`
 
@@ -319,7 +366,8 @@ When no goal set is effective on or before the date, `goals` and `comparison` ar
 accidentally render a 0 kcal goal as a real target.
 
 `exceeded` is returned explicitly rather than left to the client to infer from a negative
-`remaining`, satisfying FR-027 at the contract level.
+`remaining`, satisfying FR-027 at the contract level. It is strictly `consumed > goal`, so hitting
+a goal exactly is **not** exceeded and yields `remaining: 0`.
 
 Totals are summed from unrounded entry values and rounded once (research R4), so the displayed
 total always equals the sum of the displayed entries.
@@ -364,7 +412,7 @@ goals if none remains.
 | `to` | date | yes |
 | `exerciseId` | integer | no — omit to skip the per-exercise series |
 
-One call returns all four trends for the range (FR-029a through FR-034).
+One call returns all four trends for the range (FR-030a through FR-034).
 
 ```json
 {
@@ -381,7 +429,7 @@ One call returns all four trends for the range (FR-029a through FR-034).
 }
 ```
 
-`400` with `field: "from"` when `from` is later than `to` (FR-029b). The client keeps its current
+`400` with `field: "from"` when `from` is later than `to` (FR-030b). The client keeps its current
 view on this error rather than clearing it.
 
 Each series returns `points: []` when the range holds no data; the client renders the empty state

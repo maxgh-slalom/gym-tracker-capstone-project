@@ -131,6 +131,11 @@ whether the row was created or updated so the service can tell the user it repla
 `CHECK (portion_grams > 0)` is what makes the servings→grams conversion in research R6 total: the
 divide-by-zero state the spec worried about cannot exist in the database.
 
+`portion_grams` and the four nutrition columns are **immutable once any meal entry references the
+row** (FR-024c, research R13). This is a service-layer guard rather than a constraint, because
+SQLite cannot express "unchangeable only when referenced"; `meal_entries.food_id` is indexed so
+the reference count is cheap to check.
+
 `is_builtin` marks catalog rows that ship with the seed. It affects presentation only — builtin
 foods are edited, archived, and deleted by exactly the same rules (FR-042).
 
@@ -201,10 +206,14 @@ one owning module.
 | Day totals | `SUM` over the day's unrounded entry values, rounded once | `nutrition.service.js` |
 | Remaining | `goal − consumed`; negative means exceeded, flagged explicitly (FR-027) | `nutrition.service.js` |
 | Governing goals for day *D* | greatest `effective_date <= D`, else `null` | `goals.service.js` |
-| Session volume | `SUM(reps × weight_kg)` over the session's sets | `progress.repo.js` |
-| Weekly volume | `SUM(reps × weight_kg)` grouped by ISO week | `progress.repo.js` |
-| Exercise best | `MAX(weight_kg)` per session date for one exercise | `progress.repo.js` |
+| Session volume | `SUM(reps × weight_kg)` over the session's sets | `workouts.repo.js` |
+| Weekly volume | `SUM(reps × weight_kg)` grouped by ISO week | `workouts.repo.js` |
+| Exercise best | `MAX(weight_kg)` per session date for one exercise | `workouts.repo.js` |
 | Body weight net change | last − first in range | `progress.service.js` |
+
+All three workout aggregates live in `workouts.repo.js`, which owns the `workout_sets` table.
+`progress.repo.js` consumes them rather than writing its own `reps × weight` expression, so the
+formula required by FR-031 has exactly one implementation (FR-031a).
 
 Volume uses the single definition fixed in the spec assumptions — `reps × weight`. Because
 bodyweight sets store `weight_kg = 0`, they contribute zero volume; this is intentional and noted
@@ -223,6 +232,8 @@ Each row is covered by a unit test on the validator and an integration test on t
 | Muscle group is a known value | `oneOf(...)` | `CHECK` |
 | Reps a positive integer | `integer(min:1)` | `CHECK (reps > 0)` |
 | Weight ≥ 0 | `nonNegativeNumber` | `CHECK (weight_kg >= 0)` |
+| Masses at most 1 decimal place | `decimals(1)` | — (input-precision rule, FR-046) |
+| Decimal separator is `.` | `number` parser rejects others | — (FR-047) |
 | Session has ≥ 1 set | `minItems(1)` on `entries` | — (application rule; research R10) |
 | Body weight > 0 | `positiveNumber` | `CHECK (weight_kg > 0)` |
 | One body weight per date | upsert semantics | `PRIMARY KEY(entry_date)` |
@@ -233,11 +244,13 @@ Each row is covered by a unit test on the validator and an integration test on t
 | Goal values ≥ 0 | `nonNegativeNumber` | `CHECK (... >= 0)` |
 | Date is `YYYY-MM-DD` and real | `isoDate` | `CHECK (date(col) IS NOT NULL)` |
 | Date not in the future | `isoDate({maxToday:true})` | — (relative to now; not expressible as a static CHECK) |
+| Food nutrition locked once referenced | service pre-check → 409 | — (conditional on reference count) |
 | Referenced exercise/food not deletable | service pre-check → 409 | `ON DELETE RESTRICT` |
 
-The two rules with no database counterpart are the ones that genuinely cannot be static: "not in
-the future" depends on the current date, and "at least one set" spans rows inserted in the same
-transaction. Both are covered by tests at the layer that owns them.
+The rules with no database counterpart are the ones that genuinely cannot be static: "not in the
+future" depends on the current date, "at least one set" spans rows inserted in the same
+transaction, and the food lock depends on a count in another table. Each is covered by a test at
+the layer that owns it.
 
 ---
 

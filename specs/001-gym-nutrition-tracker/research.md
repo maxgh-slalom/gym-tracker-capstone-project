@@ -89,6 +89,9 @@ equivalent gram amount") without integer-minor-unit bookkeeping.
 once for display. Rounding per entry and then summing is forbidden, because that is what actually
 produces visible drift. A unit test asserts both properties.
 
+This policy is now stated in the spec itself as FR-044 through FR-047, rather than living only
+here, and SC-006 was reworded to match it.
+
 **Alternatives rejected**:
 
 - *Integer minor units (centigrams, decikcal)*: eliminates a theoretical problem that does not
@@ -224,7 +227,53 @@ is likewise rejected, with a message telling the user to delete the session inst
 `field: "date"`. Logging a workout, weigh-in, or meal that has not happened is a data-entry
 mistake, not a use case. Goal sets are the single exception: a future `effective_date` is
 *allowed*, because scheduling a goal change ahead of time is legitimate and harmless under the
-resolution rule in R5.
+resolution rule in R5. This is now spec text (FR-049) rather than a plan-only decision.
+
+---
+
+## R13 — Food nutrition values are immutable once referenced
+
+**Decision**: A food's `portion_grams`, `calories`, `protein_g`, `carbs_g`, and `fat_g` become
+read-only as soon as any meal entry references it. `name` and `portion_name` stay editable
+forever. Changing a locked field returns 409 with a message directing the user to create a new
+food.
+
+**Rationale**: Meal entries store only a quantity, so editing a food silently rewrites every past
+day that used it. The spec already took a firm position that history must not change under the
+user — that is the entire point of effective-dated goals (FR-025b) — and that position was simply
+not applied to foods. Locking the fields applies it consistently.
+
+The guard is one count query plus a field comparison, and it removes a whole class of "my totals
+changed and I don't know why" bugs. The UI disables the inputs using the `entryCount` already
+present in the food payload, so the restriction is visible before the user types rather than
+surfacing as a rejection afterwards.
+
+**Alternatives rejected**:
+
+- *Allow the edit with a warning showing the affected entry count*: what most trackers do, and
+  roughly the same amount of code, but it leaves the user's history mutable by accident and
+  contradicts FR-025b.
+- *Snapshot nutrition values onto every meal entry*: the textbook answer, and genuinely correct,
+  but it adds five columns, a write-path change, and a second copy of data that must be kept
+  comprehensible. Disproportionate for a v1 whose stated goal is staying small.
+
+---
+
+## R14 — A small, checkable accessibility baseline
+
+**Decision**: Adopt five concrete requirements (FR-050 to FR-054) instead of citing a standard:
+labelled form controls, keyboard operability with a visible focus ring, programmatically
+associated error messages, no colour-only meaning, and a text summary beside every chart.
+
+**Rationale**: Accessibility was absent from the spec, the plan, and the constitution. Citing
+"WCAG 2.1 AA" would have been a requirement nobody could verify without tooling this project does
+not have. These five are verifiable by reading the markup, cost almost nothing in a hand-written
+vanilla frontend, and two of them pay for themselves immediately: the colour rule is what actually
+makes FR-027's "clearly distinguish exceeding a goal" implementable, and the chart text summary
+covers the hand-rolled SVG renderer in R8, which has no built-in semantics.
+
+**Out of scope**: formal conformance auditing, screen-reader test matrices, contrast measurement
+tooling.
 
 ---
 

@@ -29,6 +29,12 @@ Two decisions carried into this plan resolve open items in the spec:
 - **Two edge cases left open by the spec are now decided**: a workout session must contain at
   least one set (empty sessions rejected with 400), and dates later than today are rejected.
   Rationale is recorded in [research.md](./research.md).
+- **Six requirements defects found by the checklist review were resolved in the spec**: the
+  rounding policy and input precision rules were promoted to requirements (FR-044 to FR-047),
+  timezone handling was pinned to the server's local date (FR-048, FR-049), an accessibility
+  baseline was added (FR-050 to FR-054), food nutrition values became immutable once referenced
+  (FR-024c, FR-024d), SC-006 and SC-008 were reworded to be satisfiable, and the contract now
+  applies one rule for 400 versus 404. See research R13 and R14.
 
 ## Technical Context
 
@@ -123,7 +129,14 @@ src/
 │   └── not-found.js               # unmatched /api routes -> 404 JSON instead of HTML
 ├── validation/
 │   ├── primitives.js              # isoDate, positiveNumber, nonNegativeNumber, integer, enum, text
-│   └── schemas.js                 # per-resource field rules, applied by routes before services
+│   └── schemas/                   # one file per resource, applied by routes before services
+│       ├── exercises.js
+│       ├── workouts.js
+│       ├── body-weights.js
+│       ├── foods.js
+│       ├── meal-entries.js
+│       ├── goals.js
+│       └── progress.js
 ├── routes/                        # HTTP concerns only
 │   ├── index.js                   # mounts all routers under /api
 │   ├── exercises.routes.js
@@ -136,6 +149,7 @@ src/
 │   ├── progress.routes.js
 │   └── demo.routes.js
 ├── services/                      # business rules; no SQL, no req/res
+│   ├── health.service.js          # database reachability and emptiness, for GET /api/health
 │   ├── exercises.service.js       # duplicate-name check, archive/restore, guarded delete
 │   ├── workouts.service.js        # session assembly, at-least-one-set rule
 │   ├── body-weights.service.js    # one-entry-per-date upsert semantics
@@ -152,13 +166,14 @@ src/
 │   ├── migrations/
 │   │   └── 001_initial_schema.sql
 │   └── repositories/              # the ONLY place SQL exists
+│       ├── health.repo.js
 │       ├── exercises.repo.js
-│       ├── workouts.repo.js
+│       ├── workouts.repo.js          # sole owner of the reps x weight volume formula
 │       ├── body-weights.repo.js
 │       ├── foods.repo.js
 │       ├── meal-entries.repo.js
 │       ├── goals.repo.js
-│       └── progress.repo.js       # read-only aggregate queries for trends
+│       └── progress.repo.js       # body weight and calorie aggregates; delegates workout math
 └── seed/
     ├── catalog.js                 # fixed built-in exercise and food catalog
     └── generate.js                # deterministic records generated relative to today
@@ -188,17 +203,26 @@ tests/
 │   ├── validation.test.js
 │   ├── nutrition-math.test.js
 │   └── goals-effective-date.test.js
-├── integration/
+├── integration/                   # one file per repository, so stories stay parallelizable
 │   ├── migrations.test.js
-│   ├── repositories.test.js
+│   ├── exercises.repo.test.js
+│   ├── workouts.repo.test.js
+│   ├── body-weights.repo.test.js
+│   ├── foods.repo.test.js
+│   ├── meal-entries.repo.test.js
+│   ├── goals.repo.test.js
+│   ├── progress.repo.test.js
 │   └── demo-seed.test.js
 └── api/
     ├── exercises.api.test.js
     ├── workouts.api.test.js
     ├── body-weights.api.test.js
+    ├── foods.api.test.js
+    ├── meal-entries.api.test.js
     ├── nutrition.api.test.js
     ├── goals.api.test.js
-    └── progress.api.test.js
+    ├── progress.api.test.js
+    └── demo.api.test.js
 ```
 
 **Structure Decision**: A single Node.js project at the repository root rather than separate
